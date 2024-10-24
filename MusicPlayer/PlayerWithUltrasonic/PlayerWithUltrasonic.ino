@@ -7,6 +7,9 @@
 SoftwareSerial DFPlayerSerial(10, 11); // RX, TX
 DFRobotDFPlayerMini DFPlayer;
 const unsigned long CHECK_INTERVAL = 2000;
+const float STOP_STATUS = 0;
+const int VOLUME = 15; // Set volume value. From 0 to 30
+const int TRACK = 1;
 
 // Ultrasonic 
 const byte SONIC_TRIGGER = 5;
@@ -46,14 +49,12 @@ void Play()
 {
     // Serial.println("Play");
 
-    DFPlayer.volume(1);  //Set volume value. From 0 to 30
-    DFPlayer.play(1); 
+    DFPlayer.volume(VOLUME); 
+    DFPlayer.play(TRACK); 
 
-    unsigned long start = millis();
     while (true) {
-        if (!IsPlaying()) {
-            break; // 만약 재생이 멈춘다면 대기 loop를 종료
-        }
+        if (!IsPlaying()) break;
+        
         delay(CHECK_INTERVAL); 
     }
 }
@@ -61,7 +62,7 @@ void Play()
 void loop()
 {
     if(!IsDetected()) return;
-    Serial.println("detected");
+    // Serial.println("detected");
 
     Play();
 }
@@ -79,10 +80,8 @@ bool IsDetected()
 bool IsPlaying()
 {
     int currentStatus = DFPlayer.readState();  // 현재 재생 상태를 읽어옴
-    Serial.println(currentStatus); 
-    if (currentStatus == 1) 
-    {
-        return true;  // 현재 재생 중
-    }
-    return false;  // 현재 재생되지 않음
+    // Serial.println(currentStatus); 
+    if (currentStatus == STOP_STATUS) return false;
+
+    return true;  // 현재 재생 중
 }
