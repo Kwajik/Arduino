@@ -1,116 +1,140 @@
 #include <HCSR04.h>
+#include <Servo.h>
 
-const int pinENA = 5;
-const int pinIN1 = 6;
-const int pinIN2 = 7;
-const int pinIN3 = 8;
-const int pinIN4 = 9;
-const int pinENB = 10;
+// Pin
+const byte WIND_UP_PWM_PIN   = 2;
+const byte SONIC_TRIGGER_PIN = 3;
+const byte SONIC_ECHO_PIN_1  = 4;
+const byte SONIC_ECHO_PIN_2  = 5;
+const byte MOTOR_ENA         = 6;
+const byte MOTOR_IN1         = 7;
+const byte MOTOR_IN2         = 8;
+const byte MOTOR_IN3         = 9;
+const byte MOTOR_IN4         = 10;
+const byte MOTOR_ENB         = 11;
 
-const int STOP_DELAY = 2000;  //espera entre fases
-const int waitTime = 2000;  //espera entre fases
+// Motor
+const int MotorA[3] = { MOTOR_ENA, MOTOR_IN1, MOTOR_IN2 };
+const int MotorB[3] = { MOTOR_ENB, MOTOR_IN3, MOTOR_IN4 };
+
 const int speed = 200;    //velocidad de giro
 
-const int pinMotorA[3] = { pinENA, pinIN1, pinIN2 };
-const int pinMotorB[3] = { pinENB, pinIN3, pinIN4 };
-
-// Ultrasonic 
-const byte SONIC_TRIGGER_PIN = 2;
-const byte ECHO_COUNT = 2;
-const byte* SONIC_ECHO_PINS = new byte[ECHO_COUNT] { 3, 4 };
-
+// Ultrasonic Sensor
 const float ERROR_VALUE = 1;
 const float DETECT_DISTANCE = 10;
+const byte ECHO_COUNT = 2;
+const byte* SONIC_ECHO_PINS = new byte[ECHO_COUNT] { SONIC_ECHO_PIN_1, SONIC_ECHO_PIN_2};
 
+// Wind Up Motor
+Servo WindUpMotor;
+
+// Varialbles
+unsigned int MoveDurationRange[2] = {3000, 5000}; 
+
+bool ExistFrontObstacle;
+bool ExistBackObstacle;
+
+// Initialize
 void setup()
+{
+  InitSensor();
+  InitMotorDriver();
+}
+
+void InitSensor()
 {
   Serial.begin(115200);
   HCSR04.begin(SONIC_TRIGGER_PIN, SONIC_ECHO_PINS, ECHO_COUNT);
-  InitMotorDriver();
+  WindUpMotor.attach(WIND_UP_PWM_PIN);
 }
 
 void InitMotorDriver()
 {
-  pinMode(pinIN1, OUTPUT);
-  pinMode(pinIN2, OUTPUT);
-  pinMode(pinENA, OUTPUT);
-  pinMode(pinIN3, OUTPUT);
-  pinMode(pinIN4, OUTPUT);
-  pinMode(pinENB, OUTPUT);
+  pinMode(MOTOR_IN1, OUTPUT);
+  pinMode(MOTOR_IN2, OUTPUT);
+  pinMode(MOTOR_ENA, OUTPUT);
+  pinMode(MOTOR_IN3, OUTPUT);
+  pinMode(MOTOR_IN4, OUTPUT);
+  pinMode(MOTOR_ENB, OUTPUT);
 }
 
+// Movememt
 void loop()
 {
-  if(CanMove())
+  ChangeDirection();
+
+  unsigned long startTime = millis();
+  int moveDuration = MoveDurationRange[1];
+  while (millis() - startTime < moveDuration)
   {
-    return;
-  }
-  else
-  {
-    return;
-    Stop();
-    delay(STOP_DELAY);
+    if(!CanMove()) ChangeDirection();
+
+    PlayWindUp();
   }
 
-  // if time out -> stop 
-  // Calc random move chance 
-
-  MoveTest();
+  Stop();
+  WaitForMoveDelay();
 }
 
+void ChangeDirection()
+{
+  moveForward(MotorA, 100);
+  moveForward(MotorB, 100);
+
+  // 진행 방향의 장애물이 생기면 멈추고 반대 방향으로 움직인다. 
+  // 그러다가 원래 방향으로 움직임이 가능해지면 다시 움직인다. 
+  // 앞 뒤로 방해물이 있다면 회전하면서 방해물이 없는 쪽을 찾음 
+}
+
+void WaitForMoveDelay()
+{
+  // get random delay
+  int stopDuration = 10000;
+  delay(stopDuration);
+}
+
+// Check logic
 bool CanMove()
 {
-  if(IsOutOfMovableBoundary()) return false;
   if(ExistObstacle()) return false;
   if(IsMoveTimeOver()) return false;
+  if(IsOutOfMovableBoundary()) return false;
 
   return true;
 }
-// 진행 방향만 체크 
+
 bool ExistObstacle()
 {
   double* distances = HCSR04.measureDistanceCm();
 
-  bool existFront = CheckObstacle(distances[0]);
-  bool existBack  = CheckObstacle(distances[1]);
+  ExistFrontObstacle = CheckObstacle(distances[0]);
+  ExistBackObstacle  = CheckObstacle(distances[1]);
 
-  return existFront || existBack;
+  String log = "Obstacle Front : " + String(ExistFrontObstacle) + " Back : " + String(ExistBackObstacle);
+  Serial.println(log);  
+
+  return ExistFrontObstacle || ExistBackObstacle;
 }
+
 bool CheckObstacle(double distance)
 {
-  Serial.println(distance);
+  // Serial.println(distance);
   bool isError = distance <= ERROR_VALUE;
   if(isError) return false;
 
-  bool existObstacle = distance <= DETECT_DISTANCE;
-
-  // Use Debug
   // Serial.println(distance); 
-  if(existObstacle)
-  {
-    Serial.println("Detect Obstacle ");   
-  }
 
-  return existObstacle;
+  return distance <= DETECT_DISTANCE;
 }
 
 bool IsMoveTimeOver()
 {
   return false;
 }
-
 bool IsOutOfMovableBoundary()
 {
   return false;
   // check distance from another arduino bluetooth
-}
-
-
-
-void Move()
-{
-  MoveCar();
-  MoveWindUp();
 }
 
 void Stop()
@@ -119,62 +143,60 @@ void Stop()
   StopWindUp();
 }
 
-// Car Movement
-void MoveCar()
-{
-
-}
-
-void moveForward(const int pinMotor[3], int speed)
-{
-  digitalWrite(pinMotor[1], HIGH);
-  digitalWrite(pinMotor[2], LOW);
-
-  analogWrite(pinMotor[0], speed);
-}
-
-void moveBackward(const int pinMotor[3], int speed)
-{
-  digitalWrite(pinMotor[1], LOW);
-  digitalWrite(pinMotor[2], HIGH);
-
-  analogWrite(pinMotor[0], speed);
-}
-
-void fullStop(const int pinMotor[3])
-{
-  digitalWrite(pinMotor[1], LOW);
-  digitalWrite(pinMotor[2], LOW);
-
-  analogWrite(pinMotor[0], 0);
-}
-
 void StopCar()
 {
-
+  fullStop(MotorA);
+  fullStop(MotorB);
 }
 
-void MoveWindUp()
+void PlayWindUp()
 {
-
+  WindUpMotor.writeMicroseconds(2500);
+  delay(30);
+  WindUpMotor.writeMicroseconds(1500);
+  delay(100);
 }
 
 void StopWindUp()
 {
-
+  WindUpMotor.writeMicroseconds(1500);
 }
 
 void MoveTest()
 {
-  moveForward(pinMotorA, 100);
-  moveForward(pinMotorB, 100);
-  delay(waitTime);
+  moveForward(MotorA, 100);
+  moveForward(MotorB, 100);
+  delay(2000);
 
-  moveBackward(pinMotorA, 10);
-  moveBackward(pinMotorB, 10);
-  delay(waitTime);
+  moveBackward(MotorA, 10);
+  moveBackward(MotorB, 10);
+  delay(2000);
 
-  fullStop(pinMotorA);
-  fullStop(pinMotorB);
-  delay(waitTime);
+  fullStop(MotorA);
+  fullStop(MotorB);
+  delay(2000);
+}
+
+void moveForward(const int motor[3], int speed)
+{
+  digitalWrite(motor[1], HIGH);
+  digitalWrite(motor[2], LOW);
+
+  analogWrite(motor[0], speed);
+}
+
+void moveBackward(const int motor[3], int speed)
+{
+  digitalWrite(motor[1], LOW);
+  digitalWrite(motor[2], HIGH);
+
+  analogWrite(motor[0], speed);
+}
+
+void fullStop(const int motor[3])
+{
+  digitalWrite(motor[1], LOW);
+  digitalWrite(motor[2], LOW);
+
+  analogWrite(motor[0], 0);
 }
