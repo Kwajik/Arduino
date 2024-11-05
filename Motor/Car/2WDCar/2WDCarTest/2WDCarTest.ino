@@ -1,5 +1,6 @@
 #include <HCSR04.h>
 #include <Servo.h>
+#define DEBUG 
 
 // Pin
 const byte WIND_UP_PWM_PIN   = 2;
@@ -29,7 +30,8 @@ const byte* SONIC_ECHO_PINS = new byte[ECHO_COUNT] { SONIC_ECHO_PIN_1, SONIC_ECH
 Servo WindUpMotor;
 
 // Varialbles
-unsigned int MoveDurationRange[2] = {3000, 5000}; 
+int MoveDurationRange[2] = {3000, 5000}; 
+int STOP_DURATION_WHEN_CANT_MOVE = 1000;
 
 bool ExistFrontObstacle;
 bool ExistBackObstacle;
@@ -67,7 +69,13 @@ void loop()
   int moveDuration = MoveDurationRange[1];
   while (millis() - startTime < moveDuration)
   {
-    if(!CanMove()) ChangeDirection();
+    if(!CanMove()) 
+    {
+      Stop();
+      delay(STOP_DURATION_WHEN_CANT_MOVE);
+
+      ChangeDirection();
+    }
 
     PlayWindUp();
   }
@@ -97,7 +105,6 @@ void WaitForMoveDelay()
 bool CanMove()
 {
   if(ExistObstacle()) return false;
-  if(IsMoveTimeOver()) return false;
   if(IsOutOfMovableBoundary()) return false;
 
   return true;
@@ -110,8 +117,10 @@ bool ExistObstacle()
   ExistFrontObstacle = CheckObstacle(distances[0]);
   ExistBackObstacle  = CheckObstacle(distances[1]);
 
+#ifdef DEBUG
   String log = "Obstacle Front : " + String(ExistFrontObstacle) + " Back : " + String(ExistBackObstacle);
   Serial.println(log);  
+#endif
 
   return ExistFrontObstacle || ExistBackObstacle;
 }
@@ -127,10 +136,6 @@ bool CheckObstacle(double distance)
   return distance <= DETECT_DISTANCE;
 }
 
-bool IsMoveTimeOver()
-{
-  return false;
-}
 bool IsOutOfMovableBoundary()
 {
   return false;
