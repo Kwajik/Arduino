@@ -61,27 +61,38 @@ void InitMotorDriver()
 }
 
 // Movememt
-void loop()
+void loop() 
+{
+  ExecuteMovementCycle();
+}
+
+void ExecuteMovementCycle() 
 {
   ChangeDirection();
+  MoveForDuration(MoveDurationRange[1]);
+  Stop();
+  WaitForMoveDelay();
+}
 
+void MoveForDuration(int duration) 
+{
   unsigned long startTime = millis();
-  int moveDuration = MoveDurationRange[1];
-  while (millis() - startTime < moveDuration)
+  while (millis() - startTime < duration) 
   {
-    if(!CanMove()) 
+    if (!CanMove()) 
     {
-      Stop();
-      delay(STOP_DURATION_WHEN_CANT_MOVE);
-
-      ChangeDirection();
+      HandleMovementBlock();
     }
 
     PlayWindUp();
   }
+}
 
+void HandleMovementBlock() 
+{
   Stop();
-  WaitForMoveDelay();
+  delay(STOP_DURATION_WHEN_CANT_MOVE);
+  ChangeDirection();
 }
 
 void ChangeDirection()
