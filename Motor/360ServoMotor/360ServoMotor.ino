@@ -1,19 +1,43 @@
 #include <Servo.h>
 
-Servo myservo;
+#define LEFT_PIN 2 
+#define RIGHT_PIN 3 
 
-void setup() {
-  myservo.attach(2);
+#define FORWARD 1550
+#define BACKWARD 1450
+#define STOP 1500
+
+Servo Left; 
+Servo Right; 
+
+void setup() 
+{ 
+    Left.attach(LEFT_PIN);
+    Right.attach(RIGHT_PIN);
 }
-
+      
 void loop() 
-{
-  Play();
+{ 
+    Forward(1000);
+    Stop(3000);
+    Backward(1000);
+    Stop(3000);
 }
-void Play()
+void Forward(int duration)
 {
-  myservo.writeMicroseconds(2500);
-  delay(50);
-  myservo.writeMicroseconds(1500);
-  delay(100);
+  Left.writeMicroseconds(1500 + 95);
+  Right.writeMicroseconds(1500 - 75);
+  delay(duration);
+}
+void Backward(int duration)
+{
+  Left.writeMicroseconds(1500 - 145);
+  Right.writeMicroseconds(1500 + 45);
+  delay(duration);
+}
+void Stop(float duration)
+{
+  Left.writeMicroseconds(STOP);
+  Right.writeMicroseconds(STOP);
+  delay(duration);
 }

@@ -18,11 +18,14 @@ const byte MOTOR_ENB         = 11;
 const int MotorA[3] = { MOTOR_ENA, MOTOR_IN1, MOTOR_IN2 };
 const int MotorB[3] = { MOTOR_ENB, MOTOR_IN3, MOTOR_IN4 };
 
-const int speed = 200;    //velocidad de giro
+const float LeftMultiple = 1.15;
+const int MoveSpeed = 200;  
+const int RotateSpeed = 170;
+const int RotateDuration = 1000;
 
 // Ultrasonic Sensor
 const float ERROR_VALUE = 1;
-const float DETECT_DISTANCE = 10;
+const float DETECT_DISTANCE = 30;
 const byte ECHO_COUNT = 2;
 const byte* SONIC_ECHO_PINS = new byte[ECHO_COUNT] { SONIC_ECHO_PIN_1, SONIC_ECHO_PIN_2};
 
@@ -30,11 +33,14 @@ const byte* SONIC_ECHO_PINS = new byte[ECHO_COUNT] { SONIC_ECHO_PIN_1, SONIC_ECH
 Servo WindUpMotor;
 
 // Varialbles
+float Angle = 0;
 int MoveDurationRange[2] = {3000, 5000}; 
 int STOP_DURATION_WHEN_CANT_MOVE = 1000;
 
-bool ExistFrontObstacle;
-bool ExistBackObstacle;
+float LeftObstacleDistance;
+bool ExistLeftObstacle;
+float RightObstacleDistance;
+bool ExistRightObstacle;
 
 // Initialize
 void setup()
@@ -63,77 +69,64 @@ void InitMotorDriver()
 // Movememt
 void loop() 
 {
-  ExecuteMovementCycle();
+  // CarTest();
+  MovementCycle();
 }
 
-void ExecuteMovementCycle() 
+void MovementCycle() 
 {
-  ChangeDirection();
-  MoveForDuration(MoveDurationRange[1]);
-  Stop();
-  WaitForMoveDelay();
+  MoveForDuration(random(MoveDurationRange[0], MoveDurationRange[1]) );
+  Stop(); 
+  WaitForMoveDelay(); // Random duration 
 }
 
 void MoveForDuration(int duration) 
 {
+  Move();
+
   unsigned long startTime = millis();
   while (millis() - startTime < duration) 
   {
     if (!CanMove()) 
     {
-      HandleMovementBlock();
+      ChangeDirection();
+      Move();
     }
 
     PlayWindUp();
   }
 }
-
-void HandleMovementBlock() 
+void Move()
 {
-  Stop();
-  delay(STOP_DURATION_WHEN_CANT_MOVE);
-  ChangeDirection();
+  MoveMotorForward(MotorA, 20 * random(8, 12));
+  MoveMotorForward(MotorB, 20 * random(8, 12));
 }
 
-void ChangeDirection()
-{
-  moveForward(MotorA, 100);
-  moveForward(MotorB, 100);
-
-  // 진행 방향의 장애물이 생기면 멈추고 반대 방향으로 움직인다. 
-  // 그러다가 원래 방향으로 움직임이 가능해지면 다시 움직인다. 
-  // 앞 뒤로 방해물이 있다면 회전하면서 방해물이 없는 쪽을 찾음 
-}
-
-void WaitForMoveDelay()
-{
-  // get random delay
-  int stopDuration = 10000;
-  delay(stopDuration);
-}
-
-// Check logic
 bool CanMove()
 {
-  if(ExistObstacle()) return false;
-  if(IsOutOfMovableBoundary()) return false;
-
-  return true;
+  return !ExistObstacle() && IsInMoveRange();
 }
 
 bool ExistObstacle()
 {
+  // Initialize Variables
+  ExistLeftObstacle = false;
+  ExistRightObstacle = false;
+
   double* distances = HCSR04.measureDistanceCm();
 
-  ExistFrontObstacle = CheckObstacle(distances[0]);
-  ExistBackObstacle  = CheckObstacle(distances[1]);
+  LeftObstacleDistance = distances[0];
+  ExistLeftObstacle = CheckObstacle(LeftObstacleDistance);
+
+  RightObstacleDistance = distances[1];
+  ExistRightObstacle  = CheckObstacle(RightObstacleDistance);
 
 #ifdef DEBUG
-  String log = "Obstacle Front : " + String(ExistFrontObstacle) + " Back : " + String(ExistBackObstacle);
+  String log = "Obstacle Left : " + String(ExistLeftObstacle) + " Right : " + String(ExistRightObstacle);
   Serial.println(log);  
 #endif
 
-  return ExistFrontObstacle || ExistBackObstacle;
+  return ExistLeftObstacle || ExistRightObstacle;
 }
 
 bool CheckObstacle(double distance)
@@ -147,10 +140,53 @@ bool CheckObstacle(double distance)
   return distance <= DETECT_DISTANCE;
 }
 
-bool IsOutOfMovableBoundary()
+
+void ChangeDirection()
 {
-  return false;
-  // check distance from another arduino bluetooth
+  Stop();
+  WaitForRSSI();
+
+  if(!IsInMoveRange())
+  {
+    TurnRight(180);
+  }
+
+  while (ExistObstacle())
+  {
+    if(ExistLeftObstacle && ExistRightObstacle)
+    {
+      TurnLeft(180);
+    }
+
+    if(ExistLeftObstacle)
+    {
+      TurnRight(10);  
+    }
+    else 
+    {
+      TurnLeft(10);
+    }
+
+    int stopDuration = random(500, 1000);
+    delay(stopDuration);
+  }
+}
+void WaitForRSSI()
+{
+
+}
+
+void WaitForMoveDelay()
+{
+  // get random delay
+  int stopDuration = random(1000, 5000);
+  delay(stopDuration);
+}
+
+bool IsInMoveRange()
+{
+  return true;
+  // check distance from RSSI
 }
 
 void Stop()
@@ -159,12 +195,8 @@ void Stop()
   StopWindUp();
 }
 
-void StopCar()
-{
-  fullStop(MotorA);
-  fullStop(MotorB);
-}
 
+// Wind Up Methods
 void PlayWindUp()
 {
   WindUpMotor.writeMicroseconds(2500);
@@ -172,47 +204,97 @@ void PlayWindUp()
   WindUpMotor.writeMicroseconds(1500);
   delay(100);
 }
-
 void StopWindUp()
 {
   WindUpMotor.writeMicroseconds(1500);
 }
 
-void MoveTest()
+// Car Methods
+void MoveCarForward() 
 {
-  moveForward(MotorA, 100);
-  moveForward(MotorB, 100);
-  delay(2000);
-
-  moveBackward(MotorA, 10);
-  moveBackward(MotorB, 10);
-  delay(2000);
-
-  fullStop(MotorA);
-  fullStop(MotorB);
-  delay(2000);
+  MoveMotorForward(MotorA, (int)(MoveSpeed * LeftMultiple));
+  MoveMotorForward(MotorB, MoveSpeed);
+}
+void MoveCarBackward()
+{
+  MoveMotorBackward(MotorA, (int)(MoveSpeed * LeftMultiple));
+  MoveMotorBackward(MotorB, MoveSpeed);
+}
+void TurnLeft(float angle)
+{
+  float waitMultiple = angle / 180;
+  MoveMotorForward(MotorA, (int)(RotateSpeed * LeftMultiple));
+  MoveMotorBackward(MotorB , RotateSpeed);
+  delay(RotateDuration * waitMultiple);
+  StopCar();
+}
+void TurnRight(float angle)
+{
+  float waitMultiple = angle / 180;
+  MoveMotorBackward(MotorA , (int)(RotateSpeed * LeftMultiple));
+  MoveMotorForward(MotorB, RotateSpeed);
+  delay(RotateDuration * waitMultiple);
+  StopCar();
+}
+void StopCar()
+{
+  StopMotor(MotorA);
+  StopMotor(MotorB);
 }
 
-void moveForward(const int motor[3], int speed)
+// Motor Methods
+void MoveMotorBackward(const int motor[3], int speed)
 {
   digitalWrite(motor[1], HIGH);
   digitalWrite(motor[2], LOW);
 
   analogWrite(motor[0], speed);
 }
-
-void moveBackward(const int motor[3], int speed)
+void MoveMotorForward(const int motor[3], int speed)
 {
   digitalWrite(motor[1], LOW);
   digitalWrite(motor[2], HIGH);
 
   analogWrite(motor[0], speed);
 }
-
-void fullStop(const int motor[3])
+void StopMotor(const int motor[3])
 {
   digitalWrite(motor[1], LOW);
   digitalWrite(motor[2], LOW);
 
   analogWrite(motor[0], 0);
+}
+
+// Test Methods
+void CarTest()
+{
+  CarMoveTest();
+  CarRotateTest();
+
+  StopCar();
+  delay(1000);
+}
+void CarMoveTest()
+{
+  Serial.println("Move Forward");
+  MoveCarForward();
+  delay(1000);
+  StopCar();
+  delay(2000);
+
+  Serial.println("Move Backward");
+  MoveCarBackward();
+  delay(1000);
+  StopCar();
+  delay(2000);
+}
+void CarRotateTest()
+{
+  Serial.println("Rotate Left");
+  TurnLeft(90);
+  delay(3000);
+
+  Serial.println("Rotate Right");
+  TurnRight(90);
+  delay(3000);
 }
