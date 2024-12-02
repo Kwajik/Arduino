@@ -26,7 +26,7 @@ DFRobotDFPlayerMini DFPlayer;
 BLEServer *pServer = NULL;
 BLECharacteristic *Sender = NULL;
 
-const char* BLUETOOTH_SENDER_NAME = "Cane";
+const char* BLUETOOTH_SENDER_NAME = "Rock";
 
 const long BLUETOOTH_INTERVAL = 1000; // 1초 간격
 
@@ -35,8 +35,8 @@ const uint16_t MIN_INTERVAL = 0x20;
 const uint16_t MAX_INTERVAL = 0x30;
 
 // UUID 상수 정의
-const BLEUUID SERVICE_UUID((uint16_t)0x180F);
-const BLEUUID CHARACTERISTIC_UUID((uint16_t)0x2A19);
+const BLEUUID SERVICE_UUID((uint16_t)0x181C); // 사용자 정의 Service UUID 예제
+const BLEUUID CHARACTERISTIC_UUID((uint16_t)0x2A3D); // 사용자 정의 Characteristic UUID 예제
 
 void setup() 
 {
@@ -46,7 +46,7 @@ void setup()
 
     IinitializeUltrasonic();
     InitializeMP3();
-    // InitializeBluetooth();
+    InitializeBluetooth();
 }
 
 void IinitializeUltrasonic()
@@ -115,7 +115,7 @@ void InitializeBluetooth()
 void loop() 
 {
     PlayMP3();
-    // SendBluetoothData();
+    SendBluetoothData();
 }
 
 bool IsDetected()

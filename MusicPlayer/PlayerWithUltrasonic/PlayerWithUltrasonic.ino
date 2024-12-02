@@ -4,11 +4,11 @@
 #include <HCSR04.h>
 
 // Player
-SoftwareSerial DFPlayerSerial(3, 2); // RX, TX
+SoftwareSerial DFPlayerSerial(2, 3); // RX, TX
 DFRobotDFPlayerMini DFPlayer;
 const unsigned long CHECK_INTERVAL = 2000;
 const float STOP_STATUS = 0;
-const int VOLUME = 20; // Set volume value. From 0 to 30
+const int VOLUME = 14; // Set volume value. From 0 to 30
 const int TRACK = 1;
 
 // Ultrasonic 
@@ -85,7 +85,7 @@ void Play()
 bool IsPlaying()
 {
     int currentStatus = DFPlayer.readState();  // 현재 재생 상태를 읽어옴
-    Serial.println(currentStatus); 
+    // Serial.println(currentStatus); 
     if (currentStatus == STOP_STATUS) return false;
 
     return true;  // 현재 재생 중
